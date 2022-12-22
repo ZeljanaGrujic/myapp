@@ -9,7 +9,10 @@
                  [hiccup "1.0.5"]
                  [org.clojure/clojure-contrib "1.2.0"]   ;; for clojure.contrib.sql
                  [org.clojure/java.jdbc "0.7.12"]         ;; jdbc
-                 [mysql/mysql-connector-java "8.0.30"]]
+                 [mysql/mysql-connector-java "8.0.30"]
+                 [ring/ring-anti-forgery "1.3.0"];returns the HTML for the anti-forgery field
+                 [ring/ring-defaults "0.3.4"]
+                 [ring/ring-devel "1.8.0"]]
   :main ^:skip-aot new-application.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all

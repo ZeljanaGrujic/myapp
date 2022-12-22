@@ -1,57 +1,96 @@
-(ns new-application.pages)
+(ns new-application.pages
+  (:require
+    [hiccup.page :refer [html5]]
+    [hiccup.form :as form]
+    [ring.util.anti-forgery :refer (anti-forgery-field)]
+    [new-application.db :as db]))
 (require '[hiccup.core :refer [html]])
-(require '[hiccup.form :as form])
-(require '[new-application.db :as db])
 
-(def all-courses [
-                  {:id 0 :name "Ekonomija" :grade "I godina" :smer "ISIT/MNG"}
-                  {:id 1 :name "Numericka analiza" :grade "II godina" :smer "ISIT"}
-                  {:id 2 :name "Menadzment tehnologije i razvoja" :grade "III godina" :smer "ISIT/MNG"}
-                  {:id 3 :name "Modelovanje poslovnih procesa" :grade "IV godina" :smer "ISIT"}])
 
-(defn base-page [& body]
-  ;basic template for all our pages
-  (html [:head [:title "New user"]]
-         [:body [:a {:href "/"}[:h1 "Baza znanja"]]
-          body]))
+(defn base [& body]
+  (html5
+    [:head [:title "GRUJIC- agro"]]
+    [:body
+     [:h1 "Dnevnik klijenata i prodaje jaja"]
+     [:a {:href "/orders/new"} "Nova porudzbina"]
+     [:hr]
+     body]))
 
-;(defn index [blogs]
-;      (base-page
-;        (for [b blogs]
-;             [:h2 [:a {:href (format "/blogs/%id" (:id b))} (:title b)]])))
-(defn cours [c]
-  (base-page [:small (:id c)]
-             [:h1 (:title c)]
-             [:p (:body c)]))
+;(defn base-page [& body]
+;  ;basic template for all our pages
+;  (html [:head [:title "New user"]]
+;         [:body [:a {:href "/"}[:h1 "Baza znanja"]]
+;          body]))
 
-(defn one-cours-view [cours]
-  (html [:ul
-          (map (fn [[k v]] [:li (format "%s : %s" (name k) (str v))]) cours)]))
+(defn index [body]
+  (base body))
 
-(defn cours-view [id]
-  (cours (first (db/get-blog-by-id id))))
-(cours-view 1)
+(defn order-view [{id :id full_name :full_name amount :amount do_date :do_date}]
+  (html5
+    [:li (format "Full_name: %s          Amount: %s          Do_date: %s" full_name amount do_date)]))
 
-(defn find-cours-by-id [id]
-  (for [c all-courses]
-    (if (= id (:id b))
-      (cours c))))
+(defn orders-view [orders]
+  (html5 [:ul
+          (map  order-view orders)]))
 
-(find-cours-by-id 1)
+;;preko atoma
+(order-view (db/orders-data 1))
+(orders-view db/orders-data)
 
-;ova forma ce biti koriscena za kreiranje i prijavljivanje usera
+(order-view (db/get-order-by-id 2))
+(orders-view (db/list-orders))
+
+
+(defn one-order-view [order]
+  (html5 [:ul
+          (map (fn [[k v]] [:li (format "%s : %s" (name k) (str v))]) order)]))
+(one-order-view (db/get-order-by-id 2))
+
+
+(defn edit-order [order]
+  (html5
+    [:body
+     [:p (:id order)]
+     (form/form-to [:post (if order
+                            (str "/order-edit/" (:id order))
+                            "/all-orders")]
+
+                   (form/label "full_name" "Full name: ")
+                   (form/text-field "full_name" (:full_name order))
+                   (form/label "amount" "Amount: ")
+                   (form/text-field "amount" (:amount order))
+                   (form/label "do_date" "Do date: ")
+                   (form/text-field "do_date" (:do_date order))
+                   (form/hidden-field "id" (:id order))
+                   (anti-forgery-field)
+
+                   (form/submit-button "Save changes"))]))
+
+(edit-order (db/get-order-by-id 2))
+
+(defn form-new-order []
+  (html5
+    [:body
+     (form/form-to [:post (str "/orders/new/" (db/get-next-id))]
+
+                   (form/label "full_name" "Full name: ")
+                   (form/text-field "full_name" "ime")
+                   (form/label "amount" "Amount: ")
+                   (form/text-field "amount" "amount")
+                   (form/label "do_date" "Do date: ")
+                   (form/text-field "do_date" "do date")
+                   (form/hidden-field "id" (db/get-next-id))
+                   (anti-forgery-field)
+
+                   (form/submit-button "Save order"))]))
+
+(defn new-order [order]
+  (db/new-order order))
+
+(new-order {:full_name "GIARDINO" :amount "300" :do_date "23.12.2022"})
+
+;ova forma ce biti koriscena za kreiranje i editovanje narudzbine
 ;ali po istom principu moze da se koristi za create/update bilo cega
 ;ovo cu verovatno ovako da pravim za pitanja
-(defn edit-user [u]
-  (base-page
-    (form/form-to
-      [:post (if u (str "/user/" (:id u))
-                   "/user")]
-      (form/label "username" "Username")
-      (form/text-field "username" (:username u))
 
-      (form/label "password" "Password")
-      (form/text-area "password" (:password u))
 
-      (form/submit-button "Save!")
-      )))

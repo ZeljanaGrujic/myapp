@@ -1,61 +1,61 @@
 (ns new-application.core
   (:gen-class)
-  (:require [compojure.core :refer :all]
-            [compojure.route :as route]
-            [ring.adapter.jetty :as jetty]
-            [ring.middleware.params :refer [wrap-params]]
-            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
-            [hiccup.core :refer [html]]
-            [hiccup.form :as form]
-            [ring.util.response :as response]))
-(require '[new-application.pages :as pg])
-(require '[new-application.db :as db])
+  (:require
+    [ring.adapter.jetty :as jetty]
+    [compojure.core :refer :all]
+    [compojure.route :as route]
+    [hiccup.core :as h]
+    [hiccup.form :as form]
+    [ring.util.response :as resp]
+    [ring.util.request :as req]
+    [hiccup.page :refer [html5]]
+    [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
+    [new-application.pages :as p]
+    [new-application.db :as db]
+    [ring.middleware.session :as session]
+    [ring.middleware.params :refer [wrap-params]]
+    [ring.middleware.reload :refer [wrap-reload]]))
 
-
-(def all-courses [
-                  {:id 0 :name "Ekonomija" :grade "I godina" :smer "ISIT/MNG"}
-                  {:id 1 :name "Numericka analiza" :grade "II godina" :smer "ISIT"}
-                  {:id 2 :name "Menadzment tehnologije i razvoja" :grade "III godina" :smer "ISIT/MNG"}
-                  {:id 3 :name "Modelovanje poslovnih procesa" :grade "IV godina" :smer "ISIT"}])
 
 (defn base-page [& body]
   ;basic template for all our pages
-  (html [:head [:title "BAZA ZNANJA"]]
-        [:body [:h1 "Privatna radionica za clanove Baze znanja,
-         mogla bih i da azuriram uvek koliko ima clanova na kom kursu"]
-         [:a {:href "/baza-znanja"} [:h2 "BAZA ZNANJA"]]
-         [:a {:href "/courses"} [:h3 "Upoznajte se sa kursevima"]]
-         [:a {:href "/user/new"} [:h3 "Registruj se"]]
+  (html5 [:head [:title "GRUJIC- agro"]]
+        [:body [:h1 "Dnevnik klijenata i prodaje jaja"]
+         [:a {:href "/grujicagro-info"} [:h2 "GRUJIC-agro"]]
+         [:a {:href "/all-orders"} [:h3 "Pogledajte sve porudzbine"]]
+         [:a {:href "/orders/new"} [:h3 "Nova porudzbina"]]
+         [:a {:href "/order-edit/"} [:h3 "Izmeni porudzbinu"]]
          body]))
 (base-page)
-
-(defn courses-view [all-courses]
-  (html [:ul
-         (map #(vector :li [:a {:href (format "/cours/%d" (:id %))} (:name %)]) all-courses)]))
-
-(defn course-view [course]
-  (html [:ul
-         (map (fn [[k v]] [:li (format "%s : %s" (name k) (str v))]) course)]))
-(course-view (all-courses 0))
-
-(defn all-users {})
-
-(defn create-user [usr pass] (assoc all-users :usr usr :pass pass ))
-
-(create-user "usr1" "pass1")
-(create-user "usr2" "pass2")
-(println all-users)
 
 
 (defroutes handler
            (GET "/" [] (base-page))
-           (GET "/baza-znanja" [] (html [:p "Napisati neki malo uvod i istoriju baze znanja"]))
-           (GET "/courses" [] (courses-view all-courses))
-           (GET "/cours/:id" [id] (course-view (all-courses (read-string id))))
-           (GET "/user/new" [] (pg/edit-user nil))
-           (POST "/user" [username password]
-             (do (db/create-user (str username) (str password))
-                 (response/redirect "/"))))
+           (GET "/grujicagro-info" [] (html5 [:p "Napisati neki malo uvod i istoriju firme, ovde bi trebalo dodati malo neke slike"]))
+           (GET "/all-orders" [] (p/orders-view (db/list-orders)))
+
+           (GET "/order/:id" [id] (p/order-view (db/get-order-by-id (read-string id))))
+
+           (GET "/order-edit/:id" [id]
+             (str (let [order (db/get-order-by-id (read-string id))] (p/edit-order order))))
+
+           ; (POST "/client-edit/:id" req (str req))
+
+
+           (POST "/order-edit/:id" req (do (let [order (full_name-amount-date-id (slurp (:body req)))]
+                                              (db/edit-order order))
+                                            (resp/redirect "/")))
+
+
+           (GET "/orders/new" [] (p/form-new-order))
+           (POST "/orders/new/:id" req (do (let [order (full_name-amount-date-id (slurp (:body req)))]
+                                              (db/new-order order))
+                                            (resp/redirect "/")))
+
+
+           )
+
+
 
 (jetty/run-jetty (fn [req] (handler req)) {:port 3018 :join? false})
 
@@ -63,3 +63,17 @@
   "I don't do a whole lot ... yet."
   [& args]
   (println "Hello, World!"))
+
+
+
+;;Resenje jer baca gresku kad cita polja
+(defn full-name [full_name]
+  ;name in format Nevena+Arsic
+  (clojure.string/replace full_name #"\+" " "))
+(defn full_name-amount-date-id [string]
+  ;string contains name and phone in this format
+  ;name=Nevena+Arsic&phone=0000&__anti-forgery-token=Unbound%3A+%23%27ring.middleware.anti-forgery%2F*anti-forgery-token*
+  (let [map {:full_name  (full-name (clojure.string/replace (get (clojure.string/split string #"&") 0) "full_name=" ""))
+             :amount (clojure.string/replace (get (clojure.string/split string #"&") 1) "amount=" "")
+             :do_date (clojure.string/replace (get (clojure.string/split string #"&") 2) "do_date=" "")
+             :id (clojure.string/replace (get (clojure.string/split string #"&") 3) "id=" "")}] map))
